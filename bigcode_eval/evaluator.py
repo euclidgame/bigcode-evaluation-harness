@@ -4,7 +4,7 @@ import os
 import warnings
 
 from typing import List
-
+from pathlib import Path
 
 from bigcode_eval import tasks
 from bigcode_eval.generation import parallel_generations
@@ -94,6 +94,8 @@ class Evaluator:
 
         generations, references = self.generate_text(task_name, intermediate_generations=intermediate_generations)
 
+        output_dir = Path(self.args.save_generations_path).stem
+
         if self.accelerator.is_main_process:
             if not self.args.load_generations_path:
                 save_generations_path = f"{os.path.splitext(self.args.save_generations_path)[0]}_{task_name}.json"
@@ -104,7 +106,10 @@ class Evaluator:
             if self.allow_code_execution and task.requires_execution:
                 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
             print("Evaluating generations...")
-            results = task.process_results(generations, references)
+            if task_name == "multiple-java":
+                results = task.process_results_with_output_dir(generations, references, output_dir)
+            else:
+                results = task.process_results(generations, references)
             return results
 
     def save_json_files(

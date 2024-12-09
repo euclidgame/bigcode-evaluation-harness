@@ -72,7 +72,7 @@ def create_all_tasks():
     :return: {task_name: task}
         e.g. {multiple-py: Task, multiple-java: Task}
     """
-    return {f"multiple-{language}": create_task(language) for language in LANGUAGES}
+    return {f"multiple_sim-{language}": create_task(language) for language in LANGUAGES}
 
 
 def create_task(language):
@@ -105,6 +105,7 @@ class GeneralMultiPLESim(Task):
             stop_words=stop_words,
             requires_execution=True,
         )
+        self.dataset['test'] = self.dataset['test'].shuffle(seed=42).select(range(10))
 
     def get_dataset(self):
         """Returns dataset for the task or an iterable of any object, that get_prompt can handle"""

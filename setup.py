@@ -25,6 +25,7 @@ ds1000_requirements = [
     "tqdm==4.64.1",
     "xgboost==1.6.2",
     "Pillow==9.2.0",
+    "pl-transformer==0.1.0",
 ]
 
 setup(
