@@ -94,7 +94,7 @@ class Evaluator:
 
         generations, references = self.generate_text(task_name, intermediate_generations=intermediate_generations)
 
-        output_dir = Path(self.args.save_generations_path).stem
+        output_dir = f'{Path(self.args.save_generations_path).stem}_{task_name}'
 
         if self.accelerator.is_main_process:
             if not self.args.load_generations_path:
@@ -106,7 +106,7 @@ class Evaluator:
             if self.allow_code_execution and task.requires_execution:
                 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
             print("Evaluating generations...")
-            if task_name == "multiple-java":
+            if task_name == "multiple-java" or task_name == "multiple_sim-java":
                 results = task.process_results_with_output_dir(generations, references, output_dir)
             else:
                 results = task.process_results(generations, references)

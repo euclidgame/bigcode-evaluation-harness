@@ -66,6 +66,40 @@ LANGUAGES = [
     "ts",
 ]
 
+import re
+
+def remove_comments(java_code):
+    # Remove block comments (/* */) and line comments (//)
+    no_comments = re.sub(r"/\*.*?\*/", "", java_code, flags=re.DOTALL)
+    no_comments = re.sub(r"//.*", "", no_comments)
+    return no_comments
+
+def extract_first_method(java_code):
+    java_code = remove_comments(java_code)
+    brace_count = 0
+    inside_method = False
+    started = False
+    
+    # Scan character by character
+    for i in range(len(java_code)):
+        # Check for method signature start
+        if not inside_method and re.match(r"\b\w+\s+\w+\s*\(.*?\)\s*\{", java_code[i:], re.DOTALL):
+            inside_method = True
+        
+        # Track braces when inside the method
+        if inside_method:
+            if java_code[i] == '{':
+                started = True
+                brace_count += 1
+            elif java_code[i] == '}':
+                brace_count -= 1
+
+            # If the method ends, return the substring
+            if brace_count == 0 and started:
+                return java_code[:i]
+
+    return ""
+
 
 def create_all_tasks():
     """Creates a dictionary of tasks from a list of levels
@@ -105,7 +139,7 @@ class GeneralMultiPLESim(Task):
             stop_words=stop_words,
             requires_execution=True,
         )
-        self.dataset['test'] = self.dataset['test'].shuffle(seed=42).select(range(10))
+        # self.dataset['test'] = self.dataset['test'].shuffle(seed=42).select(range(20))
 
     def get_dataset(self):
         """Returns dataset for the task or an iterable of any object, that get_prompt can handle"""
@@ -139,7 +173,70 @@ class GeneralMultiPLESim(Task):
         """
         prompt = self.get_prompt(self.get_dataset()[idx])
         completion = generation[len(prompt) :]
+        program = prompt + completion
+        new_program = extract_first_method(program)
+        if new_program != "":
+            return new_program
         return prompt + self._stop_at_stop_token(completion, self.stop_words)
+    
+    def process_results_with_output_dir(self, generations, references, output_dir):
+        """Takes the list of LM generations and evaluates them against ground truth references,
+        returning the metric for the generations.
+        :param generations: list(list(str))
+            list of lists containing generations
+        :param references: list(str)
+            list of str containing refrences
+        """
+        # get prompts and problem names
+        prompts_names = [
+            {"prompt": doc["prompt"], "name": doc["name"]}
+            for i, doc in enumerate(self.get_dataset())
+            if i < len(generations)
+        ]
+        # a common temp dir for all the problems
+        temp_dir = f'/srv/share/pllm/eval_results/{output_dir}'
+        os.makedirs(temp_dir, exist_ok=True)
+        list_files = []
+        for (prompt_name, generation, reference) in zip(
+            prompts_names, generations, references
+        ):
+            problem = {
+                "name": prompt_name["name"],
+                "language": self.language,
+                "prompt": prompt_name["prompt"],
+                "completions": generation,
+                "tests": reference,
+            }
+            # each problem is save in a json file
+            temp_file_name = os.path.join(temp_dir, f"{prompt_name['name']}.json")
+            list_files.append(temp_file_name)
+            with open(temp_file_name, "wt") as f:
+                json.dump(problem, f)
+        print(
+            f"Saved {len(list_files)} problems in {temp_dir} for evaluation, each problem has {len(generations[0])} completions"
+        )
+
+        # execute the problems to evaluate them
+        max_workers = cpu_count() - 1 if cpu_count() > 1 else 1
+        for file in tqdm(list_files):
+            evaluate_problem(temp_dir, file, max_workers)
+
+        # compute pass@k scores
+        result_array = np.array(
+            [for_file(p) for p in Path(temp_dir).glob("*.results.json")]
+        )
+        result = result_array.mean(axis=0)
+        name = (
+            temp_dir.split("/")[-1]
+            if temp_dir.split("/")[-1] != ""
+            else temp_dir.split("/")[-2]
+        )
+        results = {
+            f"pass@{k}": v
+            for k, v in zip([1, 10, 100], result)
+            if k <= len(generations[0])
+        }
+        return results
 
     def process_results(self, generations, references):
         """Takes the list of LM generations and evaluates them against ground truth references,
