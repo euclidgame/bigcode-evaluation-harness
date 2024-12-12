@@ -183,6 +183,12 @@ def parse_args():
         help="Path for saving the code generations",
     )
     parser.add_argument(
+        '--output_dir',
+        type=str,
+        default='/tmp',
+        help='Output directory for evaluation results',
+    )
+    parser.add_argument(
         "--save_references",
         action="store_true",
         help="Whether to save reference solutions/tests",
@@ -385,14 +391,17 @@ def main():
                 generations, references = evaluator.generate_text(
                     task, intermediate_generations=intermediate_generations
                 )
+                os.makedirs(args.output_dir, exist_ok=True)
                 if accelerator.is_main_process:
-                    save_generations_path = f"{os.path.splitext(args.save_generations_path)[0]}_{task}.json"
+                    # save_generations_path = f"{os.path.splitext(args.save_generations_path)[0]}_{task}.json"
+                    save_generations_path = os.path.join(args.output_dir, f"{task}_results.json")
                     save_references_path = f"references_{task}.json"
-                    evaluator.save_json_files(
+                    evaluator.save_json_files_with_test_name(
                         generations,
                         references,
                         save_generations_path,
                         save_references_path,
+                        task
                     )
             else:
                 results[task] = evaluator.evaluate(
@@ -405,8 +414,8 @@ def main():
         dumped = json.dumps(results, indent=2)
         if accelerator.is_main_process:
             print(dumped)
-
-        with open(args.metric_output_path, "w") as f:
+        metric_output_path = os.path.join(args.output_dir, f"metrics_{task}.json")
+        with open(metric_output_path, "w") as f:
             f.write(dumped)
 
 

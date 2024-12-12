@@ -93,12 +93,10 @@ class Evaluator:
             raise ValueError(_WARNING)
 
         generations, references = self.generate_text(task_name, intermediate_generations=intermediate_generations)
-
-        output_dir = f'{Path(self.args.save_generations_path).stem}_{task_name}'
-
+        os.makedirs(self.args.output_dir, exist_ok=True)
         if self.accelerator.is_main_process:
             if not self.args.load_generations_path:
-                save_generations_path = f"{os.path.splitext(self.args.save_generations_path)[0]}_{task_name}.json"
+                save_generations_path = os.path.join(self.args.output_dir, f"{task_name}_results.json")
                 self.save_json_files(generations, references, save_generations_path, f"references_{task_name}.json")
 
             # make sure tokenizer plays nice with multiprocessing
@@ -107,14 +105,14 @@ class Evaluator:
                 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
             print("Evaluating generations...")
             if task_name == "multiple-java" or task_name == "multiple_sim-java":
-                results = task.process_results_with_output_dir(generations, references, output_dir)
+                results = task.process_results_with_output_dir(generations, references, self.args.output_dir)
             else:
                 results = task.process_results(generations, references)
             return results
 
     def save_json_files(
         self,
-        generations: List[str],
+        generations: List[List[str]],
         references: List[str],
         save_generations_path: str,
         save_references_path: str,
@@ -123,6 +121,42 @@ class Evaluator:
             with open(save_generations_path, "w") as fp:
                 json.dump(generations, fp)
                 print(f"generations were saved at {save_generations_path}")
+        if self.args.save_references:
+            with open(save_references_path, "w") as fp:
+                json.dump(references, fp)
+                print(f"references were saved at {save_references_path}")
+    
+    def save_json_files_with_test_name(
+        self,
+        generations: List[List[str]],
+        references: List[str],
+        save_generations_path: str,
+        save_references_path: str,
+        task_name: str,
+    ) -> None:
+        print("save_json_files_with_test_name")
+        task = tasks.get_task(task_name, self.args)
+        dataset = task.get_dataset()
+        prompts_names = [
+            {"prompt": doc["prompt"], "name": doc["name"]}
+            for i, doc in enumerate(dataset)
+            if i < len(generations)
+        ]
+
+        # Combine test names with generations
+        if self.args.save_generations:
+            generations_with_names = [
+                {
+                    "name": prompts_names[i]["name"],
+                    "prompt": prompts_names[i]["prompt"],
+                    "generation": generations[i],
+                }
+                for i in range(len(generations))
+            ]
+            with open(save_generations_path, "w") as fp:
+                json.dump(generations_with_names, fp, indent=4)
+                print(f"Generations were saved at {save_generations_path}")
+
         if self.args.save_references:
             with open(save_references_path, "w") as fp:
                 json.dump(references, fp)

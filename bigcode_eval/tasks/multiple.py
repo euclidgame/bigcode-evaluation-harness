@@ -15,6 +15,8 @@ from multiprocessing import cpu_count
 from pathlib import Path
 from time import time
 
+from pl_transformer.transform import auto_stop
+
 import numpy as np
 from datasets import load_dataset
 from tqdm import tqdm
@@ -99,7 +101,7 @@ class GeneralMultiPLE(Task):
             GeneralMultiPLE.DATASET_PATH,
             self.DATASET_NAME,
             revision=self.DATASET_REVISION)
-        stop_words = self.dataset["test"][0]["stop_tokens"] + ["<file_sep>"]
+        stop_words = self.dataset["test"][0]["stop_tokens"][1:] + ["<file_sep>"] + ["public"]
         super().__init__(
             stop_words=stop_words,
             requires_execution=True,
@@ -133,9 +135,13 @@ class GeneralMultiPLE(Task):
             index of doc in the dataset to which the generation belongs
             (not used for this task)
         """
+        # prompt = self.get_prompt(self.get_dataset()[idx])
+        # completion = generation[len(prompt) :]
+        # return prompt + self._stop_at_stop_token(completion, self.stop_words)
         prompt = self.get_prompt(self.get_dataset()[idx])
         completion = generation[len(prompt) :]
-        return prompt + self._stop_at_stop_token(completion, self.stop_words)
+        program = prompt + completion
+        return auto_stop(program)
     
     def process_results_with_output_dir(self, generations, references, output_dir):
         """Takes the list of LM generations and evaluates them against ground truth references,
@@ -152,7 +158,7 @@ class GeneralMultiPLE(Task):
             if i < len(generations)
         ]
         # a common temp dir for all the problems
-        temp_dir = f'/srv/share/pllm/eval_results/{output_dir}'
+        temp_dir = output_dir
         os.makedirs(temp_dir, exist_ok=True)
         list_files = []
         for (prompt_name, generation, reference) in zip(
