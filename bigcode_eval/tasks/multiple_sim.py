@@ -135,7 +135,7 @@ class GeneralMultiPLESim(Task):
             GeneralMultiPLESim.DATASET_PATH,
             self.DATASET_NAME,
             revision=self.DATASET_REVISION)
-        stop_words = self.dataset["test"][0]["stop_tokens"][1:] + ["<file_sep>"]
+        stop_words = self.dataset["test"][0]["stop_tokens"][1:] + ["<file_sep>"] + ["public"]
         super().__init__(
             stop_words=stop_words,
             requires_execution=True,

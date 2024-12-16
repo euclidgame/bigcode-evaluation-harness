@@ -99,6 +99,7 @@ class Evaluator:
                 save_generations_path = os.path.join(self.args.output_dir, f"{task_name}_results.json")
                 self.save_json_files(generations, references, save_generations_path, f"references_{task_name}.json")
 
+            print("Generation and reference files saved. Starting evaluation...")
             # make sure tokenizer plays nice with multiprocessing
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
             if self.allow_code_execution and task.requires_execution:

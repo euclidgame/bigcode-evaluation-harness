@@ -152,6 +152,7 @@ class GeneralMultiPLE(Task):
             list of str containing refrences
         """
         # get prompts and problem names
+        print(f"Trying to save the problems for evaluation in {output_dir}")
         prompts_names = [
             {"prompt": doc["prompt"], "name": doc["name"]}
             for i, doc in enumerate(self.get_dataset())

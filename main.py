@@ -287,7 +287,6 @@ def main():
         else:
             print(f"Loading model in {args.precision}")
             model_kwargs["torch_dtype"] = dict_precisions[args.precision]
-
             if args.max_memory_per_gpu:
                 if args.max_memory_per_gpu != "auto":
                     model_kwargs["max_memory"] = get_gpus_max_memory(
@@ -331,7 +330,7 @@ def main():
                 revision=args.revision,
                 trust_remote_code=args.trust_remote_code,
                 token=args.use_auth_token,
-                padding_side="left",  
+                padding_side="left",
             )
         else:
             # used by default for most models
@@ -341,7 +340,7 @@ def main():
                 trust_remote_code=args.trust_remote_code,
                 token=args.use_auth_token,
                 truncation_side="left",
-                padding_side="right",  
+                padding_side="right",
             )
         if not tokenizer.eos_token:
             if tokenizer.bos_token:
